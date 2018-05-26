@@ -1,12 +1,14 @@
-from game import Game, Player
+from game.game import Game
+from players.player import Player
+from players.snitch_last import SnitchLastPlayer
 from profiler import Profiler
 
 NUMBER_OF_PLAYERS = 3
-GAMES = 1000
+GAMES = 10000
 
 if __name__ == "__main__":
     # Create players
-    players = [Player(i) for i in range(NUMBER_OF_PLAYERS)]
+    players = [Player("Anna"), Player("Ben"), SnitchLastPlayer("Charles")]
 
     pure_wins = 0  # i.e. exactly 1 person won
     shared_wins = 0  # i.e. where multiple but not all players won

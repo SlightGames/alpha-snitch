@@ -1,10 +1,11 @@
-# Game elements: players, cards and class for running a game
-
-from enum import Enum
-from random import shuffle, randint
-from printer import Printer
 from math import ceil
+from random import shuffle, randint
+
+from card import Card
+from players.player import Player
+from printer import Printer
 from profiler import Profiler
+from game.round_info import RoundInfo
 
 # Whether to enable logging of performance metrics to stdout
 PERFORMANCE_LOGGING = False
@@ -18,62 +19,17 @@ INITIAL_COINS_PER_PLAYER = 3
 # Game rounds
 GAME_ROUNDS = 8
 
-class Card(Enum):
-    """ Card types """
-    SNITCH = 1
-    LOCKPICK = 2
-    MUSCLE = 3
-    LOOKOUT = 4
-    DRIVER = 5
-    CON_ARTIST = 6
-
-    def __repr__(self):
-        return self.name
-
+# List of all non-Snitch characters.
 CHARACTER_CARDS = [Card.LOCKPICK, Card.MUSCLE, Card.LOOKOUT, Card.DRIVER, Card.CON_ARTIST]
 INITIAL_SNITCH_HAND = [Card.SNITCH] * INITIAL_SNITCHES_PER_PLAYER
 INITIAL_DECK = []
 for character_card in CHARACTER_CARDS:
     INITIAL_DECK += [character_card] * 10
 
-class Player(object):
-    """ Represents a player. """
-    def __init__(self, id: int):
-        self.id = id
-        self.hand: [Card] = []
-        """ Player's current hand of cards """
-        self.coins = INITIAL_COINS_PER_PLAYER
-        """ Players number of coins """
-
-    def reset(self):
-        self.hand = []
-        self.coins = INITIAL_COINS_PER_PLAYER
-
-    def prepare(self):
-        """ Called after the player has been given cards but before the first round starts. """
-        shuffle(self.hand)
-
-    @property
-    def short_name(self):
-        return f"Player #{self.id}"
-
-    def select_heist_difficulty(self, number_of_players: int):
-        """ If this player is the round leader, returns the heist difficulty chosen. """
-        return randint(1, number_of_players)
-
-    def play_card(self, contract_cards: [Card]):
-        """ Plays a card from the hand. """
-        return self.hand.pop()
-
-    def __repr__(self):
-        return f"{self.short_name}: {self.coins}$ / {self.hand}"
-
-""" List of all non-Snitch characters. """
-
 class Game(object):
     @classmethod
     def with_number_of_players(cls, number_of_players):
-        return Game(players=[Player(i) for i in range(number_of_players)])
+        return Game(players=[Player(f"Player #{i}") for i in range(number_of_players)])
 
     def __init__(self, players):
         pf = Profiler()
@@ -98,10 +54,12 @@ class Game(object):
         pf.measure("Other set up")
         # Give each player the initial number of Snitches and deal the rest.
         for player in self.players:
-            player.reset()
             number_of_character_cards_to_deal = INITIAL_CARDS_PER_PLAYER - INITIAL_SNITCHES_PER_PLAYER
-            player.hand = INITIAL_SNITCH_HAND + self.deck[:number_of_character_cards_to_deal]
+            character_hand = self.deck[:number_of_character_cards_to_deal]
             del self.deck[:number_of_character_cards_to_deal]
+            player.set_up(
+                hand=INITIAL_SNITCH_HAND + character_hand,
+                coins=INITIAL_COINS_PER_PLAYER)
             player.prepare()
         
         pf.measure("Give players cards")
@@ -123,13 +81,16 @@ class Game(object):
         pf = Profiler()
         pf.printer.indent()
         pf.printer.silent = not PERFORMANCE_LOGGING
-        for i in range(GAME_ROUNDS):
-            p.print(f"-- Round {i} --")
+
+        round_info = RoundInfo()
+
+        for round_number in range(GAME_ROUNDS):
+            p.print(f"-- Round {round_number} --")
             p.indent()
             pf.reset()
 
             # Select game leader
-            leader_player = self.players[i % len(self.players)]
+            leader_player = self.players[round_number % len(self.players)]
         
             # Leader player selects the number of players.
             heist_difficulty = leader_player.select_heist_difficulty(len(self.players))
@@ -140,8 +101,12 @@ class Game(object):
             contract_cards = self.drawSafe(how_many=heist_difficulty)
             p.print(f"Contract cards: {contract_cards}")
 
+            # Set up round info, to pass to each player instance.
+            round_info.number = round_number
+            round_info.contract_cards = contract_cards
+
             # Ask each player to play a card
-            player_cards = [(player, player.play_card(contract_cards)) for player in self.players]
+            player_cards = [(player, player.play_card(round_info)) for player in self.players]
             played_cards = []
             for (player, card) in player_cards:
                 p.print(f"{player.short_name} plays {card}")
