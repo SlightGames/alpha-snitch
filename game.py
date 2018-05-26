@@ -4,6 +4,10 @@ from enum import Enum
 from random import shuffle, randint
 from printer import Printer
 from math import ceil
+from profiler import Profiler
+
+# Whether to enable logging of performance metrics to stdout
+PERFORMANCE_LOGGING = True
 
 # Number of Snitch cards each player starts with.
 INITIAL_SNITCHES_PER_PLAYER = 3
@@ -26,6 +30,8 @@ class Card(Enum):
     def __repr__(self):
         return self.name
 
+INITIAL_SNITCH_HAND = [Card.SNITCH] * INITIAL_SNITCHES_PER_PLAYER
+
 class Player(object):
     """ Represents a player. """
     def __init__(self, id: int):
@@ -34,6 +40,10 @@ class Player(object):
         """ Player's current hand of cards """
         self.coins = INITIAL_COINS_PER_PLAYER
         """ Players number of coins """
+
+    def reset(self):
+        self.hand = []
+        self.coins = INITIAL_COINS_PER_PLAYER
 
     def prepare(self):
         """ Called after the player has been given cards but before the first round starts. """
@@ -63,13 +73,21 @@ class Game(object):
         return Game(players=[Player(i) for i in range(number_of_players)])
 
     def __init__(self, players):
+        pf = Profiler()
+        pf.printer.indent()
+        pf.printer.silent = not PERFORMANCE_LOGGING
+
         self.players = players
 
         # Set up the deck
         deck: [Card] = []
         for character_card in CHARACTER_CARDS:
             deck += [character_card] * 10
+
+        pf.measure("Set up deck")
         shuffle(deck)
+
+        pf.measure("Shuffle deck")
 
         self.deck = deck
         """ Current draw deck. Excludes Snitches. """
@@ -77,30 +95,34 @@ class Game(object):
         self.discard_deck: [Card] = []
         """ Deck discarded (played) cards. Excludes Snitches. """
 
-        # Give each player the initial number of Snitches
+        pf.measure("Other set up")
+        # Give each player the initial number of Snitches and deal the rest.
         for player in self.players:
-            for i in range(INITIAL_CARDS_PER_PLAYER):
-                if i < INITIAL_SNITCHES_PER_PLAYER:
-                    player.hand.append(Card.SNITCH)
-                else:
-                    player.hand.append(self.deck.pop())
-            
+            number_of_character_cards_to_deal = INITIAL_CARDS_PER_PLAYER - INITIAL_SNITCHES_PER_PLAYER
+            player.hand = INITIAL_SNITCH_HAND + self.deck[:number_of_character_cards_to_deal]
+            del self.deck[:number_of_character_cards_to_deal]
             player.prepare()
+        
+        pf.measure("Give players cards")
 
     def drawSafe(self):
         """ Draw from the deck and reshuffle the discard deck if needed. """
         if len(self.deck) == 0:
             # Reshuffle the discard deck into the main deck.
             shuffle(self.discard_deck)
-            self.deck.extend(self.discard_deck)
+            self.deck = self.discard_deck
             self.discard_deck.clear()
         return self.deck.pop()
 
     def play(self, silent=False):
         p = Printer(silent=silent)
+        pf = Profiler()
+        pf.printer.indent()
+        pf.printer.silent = not PERFORMANCE_LOGGING
         for i in range(GAME_ROUNDS):
             p.print(f"-- Round {i} --")
             p.indent()
+            pf.reset()
 
             # Select game leader
             leader_player = self.players[i % len(self.players)]
@@ -120,6 +142,8 @@ class Game(object):
             for (player, card) in player_cards:
                 p.print(f"{player.short_name} plays {card}")
                 played_cards.append(card)
+
+            pf.measure("Draw cards")
 
             # Evaluate game
             heist_success = self.evaluate_contract(contract_cards, played_cards)
@@ -161,6 +185,8 @@ class Game(object):
                     for player in snitch_players:
                         player.coins += reward
                         p.print(f"{player.short_name} snitched and gets {reward}💰. Ha! 😆")
+                        
+            pf.measure("Evaluate")
 
             # Discard all cards
             self.discard_deck.extend(contract_cards)
