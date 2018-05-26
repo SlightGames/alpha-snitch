@@ -8,7 +8,12 @@ GAMES = 10000
 
 if __name__ == "__main__":
     # Create players
-    players = [Player("Anna"), Player("Ben"), SnitchLastPlayer("Charles")]
+    players = [
+        Player("Anna"), 
+        Player("Ben"), 
+        SnitchLastPlayer("Charles"),
+        SnitchLastPlayer("Dylan")
+    ]
 
     pure_wins = 0  # i.e. exactly 1 person won
     shared_wins = 0  # i.e. where multiple but not all players won
