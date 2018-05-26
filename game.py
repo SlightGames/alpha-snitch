@@ -30,7 +30,11 @@ class Card(Enum):
     def __repr__(self):
         return self.name
 
+CHARACTER_CARDS = [Card.LOCKPICK, Card.MUSCLE, Card.LOOKOUT, Card.DRIVER, Card.CON_ARTIST]
 INITIAL_SNITCH_HAND = [Card.SNITCH] * INITIAL_SNITCHES_PER_PLAYER
+INITIAL_DECK = []
+for character_card in CHARACTER_CARDS:
+    INITIAL_DECK += [character_card] * 10
 
 class Player(object):
     """ Represents a player. """
@@ -64,7 +68,6 @@ class Player(object):
     def __repr__(self):
         return f"{self.short_name}: {self.coins}$ / {self.hand}"
 
-CHARACTER_CARDS = [Card.LOCKPICK, Card.MUSCLE, Card.LOOKOUT, Card.DRIVER, Card.CON_ARTIST]
 """ List of all non-Snitch characters. """
 
 class Game(object):
@@ -80,10 +83,7 @@ class Game(object):
         self.players = players
 
         # Set up the deck
-        deck: [Card] = []
-        for character_card in CHARACTER_CARDS:
-            deck += [character_card] * 10
-
+        deck = INITIAL_DECK[:]
         pf.measure("Set up deck")
         shuffle(deck)
 
@@ -92,12 +92,13 @@ class Game(object):
         self.deck = deck
         """ Current draw deck. Excludes Snitches. """
 
-        self.discard_deck: [Card] = []
+        self.discard_deck = []
         """ Deck discarded (played) cards. Excludes Snitches. """
 
         pf.measure("Other set up")
         # Give each player the initial number of Snitches and deal the rest.
         for player in self.players:
+            player.reset()
             number_of_character_cards_to_deal = INITIAL_CARDS_PER_PLAYER - INITIAL_SNITCHES_PER_PLAYER
             player.hand = INITIAL_SNITCH_HAND + self.deck[:number_of_character_cards_to_deal]
             del self.deck[:number_of_character_cards_to_deal]
@@ -105,14 +106,17 @@ class Game(object):
         
         pf.measure("Give players cards")
 
-    def drawSafe(self):
+    def drawSafe(self, how_many=1):
         """ Draw from the deck and reshuffle the discard deck if needed. """
-        if len(self.deck) == 0:
+        cards_left = len(self.deck)
+        if how_many > cards_left:
             # Reshuffle the discard deck into the main deck.
             shuffle(self.discard_deck)
-            self.deck = self.discard_deck
+            self.deck = self.deck + self.discard_deck
             self.discard_deck = []
-        return self.deck.pop()
+        cards = self.deck[:how_many]
+        del self.deck[:how_many]
+        return cards
 
     def play(self, silent=False):
         p = Printer(silent=silent)
@@ -133,7 +137,7 @@ class Game(object):
             p.print(f"{leader_player.short_name} selects difficulty of {heist_difficulty}")
 
             # Draw this many cards to form the contract
-            contract_cards = [self.drawSafe() for _ in range(heist_difficulty)]
+            contract_cards = self.drawSafe(how_many=heist_difficulty)
             p.print(f"Contract cards: {contract_cards}")
 
             # Ask each player to play a card

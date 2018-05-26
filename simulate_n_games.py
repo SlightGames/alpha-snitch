@@ -1,7 +1,7 @@
 from game import Game, Player
 from profiler import Profiler
 
-NUMBER_OF_PLAYERS = 5
+NUMBER_OF_PLAYERS = 3
 GAMES = 1000
 
 if __name__ == "__main__":
