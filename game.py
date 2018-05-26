@@ -1,3 +1,5 @@
+# Game elements: players, cards and class for running a game
+
 from enum import Enum
 from random import shuffle, randint
 from printer import Printer
@@ -56,8 +58,12 @@ CHARACTER_CARDS = [Card.LOCKPICK, Card.MUSCLE, Card.LOOKOUT, Card.DRIVER, Card.C
 """ List of all non-Snitch characters. """
 
 class Game(object):
-    def __init__(self, number_of_players: int):
-        self.players = [Player(i) for i in range(number_of_players)] 
+    @classmethod
+    def with_number_of_players(cls, number_of_players):
+        return Game(players=[Player(i) for i in range(number_of_players)])
+
+    def __init__(self, players):
+        self.players = players
 
         # Set up the deck
         deck: [Card] = []
@@ -70,8 +76,6 @@ class Game(object):
 
         self.discard_deck: [Card] = []
         """ Deck discarded (played) cards. Excludes Snitches. """
-
-        self.printer = Printer()
 
         # Give each player the initial number of Snitches
         for player in self.players:
@@ -92,8 +96,8 @@ class Game(object):
             self.discard_deck.clear()
         return self.deck.pop()
 
-    def play(self):
-        p = self.printer
+    def play(self, silent=False):
+        p = Printer(silent=silent)
         for i in range(GAME_ROUNDS):
             p.print(f"-- Round {i} --")
             p.indent()
@@ -164,8 +168,29 @@ class Game(object):
                 self.discard_deck.append(card)
 
             p.deindent()
+
         p.print("*** Game Summary ***")
-        
+        p.indent()
+        # Sort by money.
+        players = list(self.players)
+        players.sort(key=lambda player: player.coins, reverse=True)
+    
+        # Determine winners
+        winners = [player for player in players if player.coins == players[0].coins]
+        if len(winners) == 1:
+            p.print(f"{winners[0].short_name} wins with ${winners[0].coins}")
+        elif len(winners) == len(players):
+            p.print(f"All players draw.")
+            winners = []
+        else:
+            winner_names = ", ".join(p.short_name for p in winners)
+            p.print(f"{winner_names} drew with ${winners[0].coins}")
+        p.deindent()
+
+        # Return result and stats
+        return {
+            "winners": winners
+        }
 
     def evaluate_contract(self, contract_cards: [Card], played_cards: [Card]):
         for card in contract_cards:
@@ -176,10 +201,3 @@ class Game(object):
                 return False
         # All cards found. Heist succeeds
         return True
-
-if __name__ == "__main__":
-    game = Game(3)
-    print(game.players)
-    print(len(game.deck))
-
-    game.play()
