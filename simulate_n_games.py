@@ -1,8 +1,8 @@
 from game import Game, Player
 from profiler import Profiler
 
-NUMBER_OF_PLAYERS = 3
-GAMES = 50
+NUMBER_OF_PLAYERS = 5
+GAMES = 1000
 
 if __name__ == "__main__":
     # Create players
@@ -15,12 +15,8 @@ if __name__ == "__main__":
 
     pf = Profiler()
     for _ in range(GAMES):
-        pf.reset()
         game = Game(players)
-        pf.measure("Set up")
         result = game.play(silent=True)
-        pf.measure("Play")
-
         # Record stats about the game
         winners = result["winners"]
 
@@ -33,7 +29,7 @@ if __name__ == "__main__":
                 pure_wins += 1
             else:
                 shared_wins += 1
-        pf.measure("Game")
+    pf.measure("Time taken")
 
     # Print stats
     print(f"Player {GAMES} games with {NUMBER_OF_PLAYERS} players")

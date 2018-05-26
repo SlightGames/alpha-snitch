@@ -7,7 +7,7 @@ from math import ceil
 from profiler import Profiler
 
 # Whether to enable logging of performance metrics to stdout
-PERFORMANCE_LOGGING = True
+PERFORMANCE_LOGGING = False
 
 # Number of Snitch cards each player starts with.
 INITIAL_SNITCHES_PER_PLAYER = 3
@@ -111,7 +111,7 @@ class Game(object):
             # Reshuffle the discard deck into the main deck.
             shuffle(self.discard_deck)
             self.deck = self.discard_deck
-            self.discard_deck.clear()
+            self.discard_deck = []
         return self.deck.pop()
 
     def play(self, silent=False):
@@ -185,7 +185,7 @@ class Game(object):
                     for player in snitch_players:
                         player.coins += reward
                         p.print(f"{player.short_name} snitched and gets {reward}💰. Ha! 😆")
-                        
+
             pf.measure("Evaluate")
 
             # Discard all cards
